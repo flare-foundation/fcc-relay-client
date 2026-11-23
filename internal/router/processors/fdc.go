@@ -71,7 +71,7 @@ func NewFDC(cfg *config.FDC, base *Base) (*FDC, error) {
 // to the base processor.
 func (f *FDC) StartQueues(ctx context.Context, wg *sync.WaitGroup) {
 	if len(f.idToQueueName) == 0 {
-		logger.Warnf("no FDC verifiers configured — FDC2 PROVE instructions will fail")
+		logger.Warnf("no FDC verifiers configured — FDC2 PROVE instructions are sent unverified")
 	}
 
 	for name, q := range f.queues {
@@ -86,6 +86,7 @@ func (f *FDC) StartQueues(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 // Process adds the instruction to the FDC queue with the current timestamp as weight.
+// An instruction whose type and source no verifier serves is sent unverified at once.
 func (f *FDC) Process(ctx context.Context, ib *instructions.Base) error {
 	id, err := AttTypeAndSourceIDBase(ib)
 	if err != nil {
@@ -95,7 +96,9 @@ func (f *FDC) Process(ctx context.Context, ib *instructions.Base) error {
 	queueName, exits := f.idToQueueName[id]
 	if !exits {
 		attType, sourceID := atsStrings(id)
-		return fmt.Errorf("no queue for: %s, %s", attType, sourceID)
+		logger.Warnf("no verifier for instruction %s (type %s, source %s), sending it unverified", common.Hash(ib.Event.InstructionId).Hex(), attType, sourceID)
+
+		return f.handler.unverified(ctx, ib)
 	}
 
 	q, exits := f.queues[queueName]
@@ -103,7 +106,7 @@ func (f *FDC) Process(ctx context.Context, ib *instructions.Base) error {
 		attType, sourceID := atsStrings(id)
 		return fmt.Errorf("no queue %q for: %s, %s", queueName, attType, sourceID)
 	}
-	_, err = q.Add(ctx, ib, Weight{time.Now()})
+	err = q.Add(ctx, ib, Weight{time.Now()})
 	if err != nil {
 		return fmt.Errorf("adding to queue %v: %w", queueName, err)
 	}

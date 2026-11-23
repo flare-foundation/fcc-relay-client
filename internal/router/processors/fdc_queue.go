@@ -33,27 +33,44 @@ func (w Weight) Less(t Weight) bool {
 
 // FDCQueue is a priority queue of FDC instructions ordered by Weight.
 type FDCQueue struct {
-	*priority.PriorityQueue[*instructions.Base, Weight]
+	*priority.PriorityQueue[*queued, Weight]
+
+	maxAttempts int
+}
+
+// queued is an instruction with the number of times it was handled.
+// The queue re-pushes the same pointer on retry, so the count survives.
+type queued struct {
+	ib       *instructions.Base
+	attempts int
 }
 
 // NewQueue creates a FDC queue.
 func NewQueue(params priority.Params, name string) *FDCQueue {
 	// Terminal errors must always be drainable; see ProcessOut. params is a value copy.
 	params.ErrorChan = true
-	queue := priority.NewWithLogger[*instructions.Base, Weight](params, name, logger.Logger())
+	queue := priority.NewWithLogger[*queued, Weight](params, name, logger.Logger())
 
-	return &FDCQueue{queue}
+	// the priority queue tries an item max(1, MaxAttempts) times in total
+	return &FDCQueue{PriorityQueue: queue, maxAttempts: max(1, params.MaxAttempts)}
+}
+
+// Add adds the instruction to the queue with weight w.
+func (q *FDCQueue) Add(ctx context.Context, ib *instructions.Base, w Weight) error {
+	_, err := q.PriorityQueue.Add(ctx, &queued{ib: ib}, w)
+	return err
 }
 
 // Handler handles a dequeued instruction.
 type Handler interface {
-	Handle(context.Context, *instructions.Base) error
+	// Handle handles ib; final is set on the last attempt the queue makes.
+	Handle(ctx context.Context, ib *instructions.Base, final bool) error
 }
 
 // wrapHandle logs each attempt and wraps handler errors and recovered panics with the
 // instruction ID; the queue's worker has no recover, so a panic would kill the relay.
-func (q *FDCQueue) wrapHandle(h Handler) func(context.Context, *instructions.Base) error {
-	return func(ctx context.Context, ib *instructions.Base) (err error) {
+func (q *FDCQueue) wrapHandle(h Handler) func(context.Context, *queued) error {
+	return func(ctx context.Context, item *queued) (err error) {
 		// id is computed after the defer so even a panic there is recovered
 		var id string
 
@@ -64,10 +81,13 @@ func (q *FDCQueue) wrapHandle(h Handler) func(context.Context, *instructions.Bas
 			}
 		}()
 
-		id = common.Hash(ib.Event.InstructionId).Hex()
+		id = common.Hash(item.ib.Event.InstructionId).Hex()
 
-		logger.Debugf("queue %s: handling instruction %s", q.Name(), id)
-		err = h.Handle(ctx, ib)
+		// handlers run one at a time per item: it is re-pushed only after this returns
+		item.attempts++
+
+		logger.Debugf("queue %s: handling instruction %s (attempt %d/%d)", q.Name(), id, item.attempts, q.maxAttempts)
+		err = h.Handle(ctx, item.ib, item.attempts >= q.maxAttempts)
 		if err != nil {
 			err = fmt.Errorf("instruction %s: %w", id, err)
 			// quote: verifier errors can embed response bodies with control characters.

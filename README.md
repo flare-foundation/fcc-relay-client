@@ -301,6 +301,8 @@ One of the protocols operated on Flare TEEs is FDC2 (Flare Data Connector). FDC2
 
 A verifier must be configured for each supported (attestation type, source) pair. To avoid overloading servers, each verifier is backed by a queue. Multiple verifiers can share a queue when they point to the same server.
 
+An instruction the relay cannot verify is still signed and sent, unverified: with empty additional fixed and variable messages and no attestation signature. This happens when no verifier serves its pair (at once, without queueing), when the verifier answers `REJECTED`, and when no usable response arrives by the queue's final attempt. An instruction whose query is cut short by shutdown is dropped.
+
 The relay signs each attestation response with the `Relay` Mode-2 digest, which binds the chain id —
 `keccak256(chain_id ‖ 0x010000000000 ‖ messageHash)` — because that is what the `Relay` recovers signatures against.
 
@@ -374,8 +376,8 @@ Response (HTTP 200):
 `status` is the verifier's verdict on the request:
 
 - `VERIFIED` — the request is confirmed. `responseBody` carries the ABI-encoded attestation response and must be nonempty and at most 100 KiB (the instruction size limit enforced by the TEEs); `message` must be empty.
-- `RETRY` — the request cannot be decided yet (e.g. the queried data is not yet final); `message` says why and `responseBody` must be empty. The client re-enqueues the instruction: the queue retries it after `time_off`, up to `max_attempts` in total, then drops it.
-- `REJECTED` — the request is invalid or unconfirmable; `message` says why and `responseBody` must be empty. The client drops the instruction without retrying.
+- `RETRY` — the request cannot be decided yet (e.g. the queried data is not yet final); `message` says why and `responseBody` must be empty. The client re-enqueues the instruction: the queue retries it after `time_off`, up to `max_attempts` in total, then sends it unverified.
+- `REJECTED` — the request is invalid or unconfirmable; `message` says why and `responseBody` must be empty. The client sends the instruction unverified without retrying.
 
 An empty `responseBody` may also be encoded as JSON `null` or omitted entirely. Any other `status`, a `VERIFIED` response with an empty or oversized `responseBody`, or an undecodable body is a protocol error; the client treats it like `RETRY`.
 

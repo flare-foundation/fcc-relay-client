@@ -3,6 +3,7 @@ package processors
 import (
 	"context"
 	"errors"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -16,14 +17,14 @@ import (
 // failingHandler always fails with a fixed error.
 type failingHandler struct{ err error }
 
-func (h failingHandler) Handle(context.Context, *instructions.Base) error {
+func (h failingHandler) Handle(context.Context, *instructions.Base, bool) error {
 	return h.err
 }
 
 // panickingHandler always panics.
 type panickingHandler struct{}
 
-func (panickingHandler) Handle(context.Context, *instructions.Base) error {
+func (panickingHandler) Handle(context.Context, *instructions.Base, bool) error {
 	panic("kaboom")
 }
 
@@ -35,7 +36,7 @@ func TestQueuePanicRecovered(t *testing.T) {
 	ib := &instructions.Base{Event: &instructions.InstructionSentEvent{InstructionId: instrID}}
 
 	var err error
-	require.NotPanics(t, func() { err = q.wrapHandle(panickingHandler{})(t.Context(), ib) })
+	require.NotPanics(t, func() { err = q.wrapHandle(panickingHandler{})(t.Context(), &queued{ib: ib}) })
 	require.ErrorContains(t, err, "recovered panic")
 	require.ErrorContains(t, err, "kaboom")
 	require.ErrorContains(t, err, instrID.Hex())
@@ -57,7 +58,7 @@ func TestQueueTerminalErrorCarriesInstructionID(t *testing.T) {
 	instrID := common.HexToHash("0xdeadbeef")
 	ib := &instructions.Base{Event: &instructions.InstructionSentEvent{InstructionId: instrID}}
 
-	_, err := q.Add(ctx, ib, Weight{time.Now()})
+	err := q.Add(ctx, ib, Weight{time.Now()})
 	require.NoError(t, err)
 
 	sentinel := errors.New("boom")
@@ -78,7 +79,7 @@ type signalingHandler struct {
 	ch  chan struct{}
 }
 
-func (h signalingHandler) Handle(context.Context, *instructions.Base) error {
+func (h signalingHandler) Handle(context.Context, *instructions.Base, bool) error {
 	select {
 	case h.ch <- struct{}{}:
 	default:
@@ -104,7 +105,7 @@ func TestProcessOut(t *testing.T) {
 	require.Eventually(t, func() bool { return len(q.Errors) == 0 }, 2*time.Second, 10*time.Millisecond)
 
 	ib := &instructions.Base{Event: &instructions.InstructionSentEvent{InstructionId: common.HexToHash("0xabc")}}
-	_, err := q.Add(ctx, ib, Weight{time.Now()})
+	err := q.Add(ctx, ib, Weight{time.Now()})
 	require.NoError(t, err)
 
 	select {
@@ -129,7 +130,7 @@ func TestProcessOut(t *testing.T) {
 // recordingHandler reports each handled instruction ID.
 type recordingHandler struct{ ch chan common.Hash }
 
-func (h recordingHandler) Handle(_ context.Context, ib *instructions.Base) error {
+func (h recordingHandler) Handle(_ context.Context, ib *instructions.Base, _ bool) error {
 	h.ch <- common.Hash(ib.Event.InstructionId)
 	return nil
 }
@@ -147,7 +148,7 @@ func TestQueueDequeuesEarliestFirst(t *testing.T) {
 	arrival := []int{3, 0, 4, 1, 2} // shuffled enqueue order
 	for _, off := range arrival {
 		ib := &instructions.Base{Event: &instructions.InstructionSentEvent{InstructionId: common.BytesToHash([]byte{byte(off)})}}
-		_, err := q.Add(ctx, ib, Weight{base.Add(time.Duration(off) * time.Minute)})
+		err := q.Add(ctx, ib, Weight{base.Add(time.Duration(off) * time.Minute)})
 		require.NoError(t, err)
 	}
 	require.Eventually(t, func() bool { return q.Length() == len(arrival) }, 2*time.Second, 10*time.Millisecond)
@@ -162,5 +163,57 @@ func TestQueueDequeuesEarliestFirst(t *testing.T) {
 		case <-time.After(2 * time.Second):
 			t.Fatal("timed out waiting for dequeue")
 		}
+	}
+}
+
+// finalHandler fails every call and reports its final flag.
+type finalHandler struct{ ch chan bool }
+
+func (h finalHandler) Handle(_ context.Context, _ *instructions.Base, final bool) error {
+	h.ch <- final
+	return errors.New("boom")
+}
+
+// TestQueueFinalAttempt pins that only the last of the max_attempts tries the
+// priority queue makes is flagged final.
+func TestQueueFinalAttempt(t *testing.T) {
+	t.Parallel()
+
+	for _, maxAttempts := range []int{1, 3} {
+		t.Run(strconv.Itoa(maxAttempts), func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+
+			q := NewQueue(priority.Params{MaxAttempts: maxAttempts, TimeOff: time.Millisecond}, "queueA")
+			q.InitiateAndRun(ctx)
+
+			ib := &instructions.Base{Event: &instructions.InstructionSentEvent{InstructionId: common.HexToHash("0xf1")}}
+			require.NoError(t, q.Add(ctx, ib, Weight{time.Now()}))
+
+			finals := make(chan bool, maxAttempts+1)
+			handle := q.wrapHandle(finalHandler{ch: finals})
+			got := make([]bool, 0, maxAttempts)
+			for range maxAttempts {
+				q.Dequeue(ctx, handle, nil)
+				select {
+				case f := <-finals:
+					got = append(got, f)
+				case <-time.After(2 * time.Second):
+					t.Fatalf("timed out waiting for attempt %d", len(got)+1)
+				}
+			}
+
+			want := make([]bool, maxAttempts)
+			want[maxAttempts-1] = true
+			require.Equal(t, want, got)
+
+			// the queue agrees: the final attempt's error is terminal
+			select {
+			case err := <-q.Errors:
+				require.ErrorContains(t, err, "boom")
+			case <-time.After(2 * time.Second):
+				t.Fatal("timed out waiting for terminal error")
+			}
+		})
 	}
 }

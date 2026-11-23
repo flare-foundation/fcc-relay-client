@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/flare-foundation/fcc-node/pkg/fdc"
 	"github.com/flare-foundation/fcc-node/pkg/types"
+	"github.com/flare-foundation/fcc-node/pkg/utils"
 	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
@@ -97,7 +98,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 		respBody := []byte("attestation-response")
 		out := make(chan *instructions.Base, 1)
 		ib := buildIB()
-		require.NoError(t, newHandler(out, stubResponder{res: VerifierResponse{Status: StatusVerified, ResponseBody: respBody}}).Handle(context.Background(), ib))
+		require.NoError(t, newHandler(out, stubResponder{res: VerifierResponse{Status: StatusVerified, ResponseBody: respBody}}).Handle(context.Background(), ib, false))
 
 		got := <-out
 		require.Equal(t, hexutil.Bytes(respBody), got.GeneralData.AdditionalFixedMessage)
@@ -126,7 +127,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 
 		ib := buildIB()
 		ib.GeneralData.AdditionalFixedMessage = respBody // as a prior VERIFIED attempt leaves it
-		require.NoError(t, h.Handle(context.Background(), ib))
+		require.NoError(t, h.Handle(context.Background(), ib, false))
 		require.EqualValues(t, 0, calls.Load())
 
 		got := <-out
@@ -134,15 +135,15 @@ func TestFDCHandlerHandle(t *testing.T) {
 		require.Len(t, got.Signatures, 1)
 	})
 
-	t.Run("verifier rejects -> nothing emitted", func(t *testing.T) {
+	t.Run("verifier rejects -> sent unverified without retry", func(t *testing.T) {
 		out := make(chan *instructions.Base, 1)
-		require.NoError(t, newHandler(out, stubResponder{res: VerifierResponse{Status: StatusRejected, Message: "unsupported"}}).Handle(context.Background(), buildIB()))
-		require.Empty(t, out)
+		require.NoError(t, newHandler(out, stubResponder{res: VerifierResponse{Status: StatusRejected, Message: "unsupported"}}).Handle(context.Background(), buildIB(), false))
+		requireUnverified(t, <-out, operator)
 	})
 
 	t.Run("verifier retry -> error for the queue, nothing emitted", func(t *testing.T) {
 		out := make(chan *instructions.Base, 1)
-		err := newHandler(out, stubResponder{res: VerifierResponse{Status: StatusRetry, Message: "round not finalized"}}).Handle(context.Background(), buildIB())
+		err := newHandler(out, stubResponder{res: VerifierResponse{Status: StatusRetry, Message: "round not finalized"}}).Handle(context.Background(), buildIB(), false)
 		require.ErrorContains(t, err, "RETRY")
 		require.ErrorContains(t, err, "round not finalized")
 		requireErrorNamesVerifier(t, err, ats)
@@ -151,14 +152,14 @@ func TestFDCHandlerHandle(t *testing.T) {
 
 	t.Run("verifier returns unknown status -> error, nothing emitted", func(t *testing.T) {
 		out := make(chan *instructions.Base, 1)
-		err := newHandler(out, stubResponder{res: VerifierResponse{Status: "BOGUS"}}).Handle(context.Background(), buildIB())
+		err := newHandler(out, stubResponder{res: VerifierResponse{Status: "BOGUS"}}).Handle(context.Background(), buildIB(), false)
 		require.ErrorIs(t, err, ErrUnknownStatus)
 		require.Empty(t, out)
 	})
 
 	t.Run("verifier error", func(t *testing.T) {
 		out := make(chan *instructions.Base, 1)
-		err := newHandler(out, stubResponder{err: errors.New("boom")}).Handle(context.Background(), buildIB())
+		err := newHandler(out, stubResponder{err: errors.New("boom")}).Handle(context.Background(), buildIB(), false)
 		require.ErrorContains(t, err, "boom")
 		requireErrorNamesVerifier(t, err, ats)
 	})
@@ -168,7 +169,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 		base := NewBase(chainID, emptySigner{})
 		base.SetOut(out)
 		h := &FDCHandler{Base: base, verifiers: map[[64]byte]Responder{ats: stubResponder{res: VerifierResponse{Status: StatusVerified, ResponseBody: []byte{0x01}}}}}
-		err := h.Handle(context.Background(), buildIB())
+		err := h.Handle(context.Background(), buildIB(), false)
 		require.ErrorContains(t, err, "expected 1 signature")
 		require.Empty(t, out)
 	})
@@ -179,7 +180,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		require.ErrorIs(t, h.Handle(ctx, buildIB()), context.Canceled)
+		require.ErrorIs(t, h.Handle(ctx, buildIB(), false), context.Canceled)
 	})
 
 	t.Run("no verifier for att type/source", func(t *testing.T) {
@@ -187,8 +188,79 @@ func TestFDCHandlerHandle(t *testing.T) {
 		base := NewBase(chainID, signer.NewLocal(opKey))
 		base.SetOut(out)
 		h := &FDCHandler{Base: base, verifiers: map[[64]byte]Responder{}}
-		require.ErrorContains(t, h.Handle(context.Background(), buildIB()), "no verifier")
+		require.ErrorContains(t, h.Handle(context.Background(), buildIB(), false), "no verifier")
 	})
+
+	t.Run("final attempt without a usable response -> sent unverified", func(t *testing.T) {
+		for name, r := range map[string]stubResponder{
+			"retry":          {res: VerifierResponse{Status: StatusRetry, Message: "round not finalized"}},
+			"unknown status": {res: VerifierResponse{Status: "BOGUS"}},
+			"error":          {err: errors.New("boom")},
+			"timeout":        {err: context.DeadlineExceeded}, // post.WithRetry's own deadline, not shutdown
+		} {
+			t.Run(name, func(t *testing.T) {
+				out := make(chan *instructions.Base, 1)
+				require.NoError(t, newHandler(out, r).Handle(context.Background(), buildIB(), true))
+				requireUnverified(t, <-out, operator)
+			})
+		}
+	})
+
+	t.Run("final attempt verified -> signed response", func(t *testing.T) {
+		respBody := []byte("attestation-response")
+		out := make(chan *instructions.Base, 1)
+		require.NoError(t, newHandler(out, stubResponder{res: VerifierResponse{Status: StatusVerified, ResponseBody: respBody}}).Handle(context.Background(), buildIB(), true))
+
+		got := <-out
+		require.Equal(t, hexutil.Bytes(respBody), got.GeneralData.AdditionalFixedMessage)
+		require.NotEmpty(t, got.GeneralData.AdditionalVariableMessage)
+	})
+
+	t.Run("final attempt after shutdown -> error, nothing emitted", func(t *testing.T) {
+		out := make(chan *instructions.Base, 1)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		err := newHandler(out, stubResponder{err: context.Canceled}).Handle(ctx, buildIB(), true)
+		require.ErrorIs(t, err, context.Canceled)
+		require.Empty(t, out)
+	})
+
+	t.Run("final attempt with a verified response kept -> signing failure is returned", func(t *testing.T) {
+		out := make(chan *instructions.Base, 1)
+		base := NewBase(chainID, emptySigner{})
+		base.SetOut(out)
+		calls := new(atomic.Int32)
+		h := &FDCHandler{Base: base, verifiers: map[[64]byte]Responder{ats: countingResponder{calls: calls, res: VerifierResponse{Status: StatusRetry}}}}
+
+		ib := buildIB()
+		ib.GeneralData.AdditionalFixedMessage = []byte{0x01} // as a prior VERIFIED attempt leaves it
+		require.ErrorContains(t, h.Handle(context.Background(), ib, true), "expected 1 signature")
+		require.EqualValues(t, 0, calls.Load())
+		require.Equal(t, hexutil.Bytes{0x01}, ib.GeneralData.AdditionalFixedMessage)
+		require.Empty(t, out)
+	})
+}
+
+// requireUnverified asserts ib carries empty additional messages and one
+// signature per TEE by want that fcc-node recovers over the chain-14 instruction hash.
+func requireUnverified(t *testing.T, ib *instructions.Base, want common.Address) {
+	t.Helper()
+	const chainID = 14
+	require.Empty(t, ib.GeneralData.AdditionalFixedMessage)
+	require.NotNil(t, ib.GeneralData.AdditionalVariableMessage)
+	require.Empty(t, ib.GeneralData.AdditionalVariableMessage)
+	require.Len(t, ib.Signatures, len(ib.Tees))
+
+	data := ib.GeneralData
+	for i, tee := range ib.Tees {
+		data.TeeID = tee.TeeId
+		hash, err := data.HashForSigning(chainID)
+		require.NoError(t, err)
+		got, err := utils.SignatureToSignersAddress(hash[:], ib.Signatures[i])
+		require.NoError(t, err)
+		require.Equal(t, want, got)
+	}
 }
 
 // requireErrorNamesVerifier asserts err carries the verifier's type and source strings.
