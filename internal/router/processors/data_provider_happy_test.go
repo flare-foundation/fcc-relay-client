@@ -45,10 +45,8 @@ func eciesEncrypt(t *testing.T, key *ecdsa.PrivateKey, msg []byte) []byte {
 	return cipher
 }
 
-// TestProcessDataProviderRestoreHappyPath builds a fully-signed WalletBackup in
-// which the relay (operator key) is a provider owner, runs the full restore, and
-// decrypts the TEE-bound output to confirm the relay decrypted the provider key
-// split and re-encrypted it for the destination TEE.
+// TestProcessDataProviderRestoreHappyPath checks the relay's provider key split is
+// re-encrypted for the destination TEE.
 func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	t.Parallel()
 	const chainID = uint64(14)

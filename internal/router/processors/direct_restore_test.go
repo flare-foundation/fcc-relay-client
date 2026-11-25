@@ -23,10 +23,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProcessDirectRestore drives processDirectRestore end-to-end against an
-// httptest source proxy. The happy path proves the envelope and action-result
-// signatures are reconstructed exactly as fcc-node signs them (guarding the
-// preimage fixes); the negative cases prove the new gates reject bad input.
+// TestProcessDirectRestore drives processDirectRestore against an httptest source
+// proxy, with signatures built exactly as the TEE signs them.
 func TestProcessDirectRestore(t *testing.T) {
 	t.Parallel()
 	const chainID = uint64(14)

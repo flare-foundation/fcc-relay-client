@@ -50,11 +50,8 @@ type Handler interface {
 	Handle(context.Context, *instructions.Base) error
 }
 
-// wrapHandle logs when an instruction leaves the queue for handling, decorates a handler
-// error with the instruction ID, and logs the failed attempt at Debug.
-// The decorated error is what the queue retries and reports on the final attempt.
-// A panic in the handler is recovered into such an error: the queue's worker
-// goroutine has no recover of its own, so it would kill the whole relay.
+// wrapHandle logs each attempt and wraps handler errors and recovered panics with the
+// instruction ID; the queue's worker has no recover, so a panic would kill the relay.
 func (q *FDCQueue) wrapHandle(h Handler) func(context.Context, *instructions.Base) error {
 	return func(ctx context.Context, ib *instructions.Base) (err error) {
 		// id is computed after the defer so even a panic there is recovered

@@ -19,11 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProcessDataProviderRestore covers the error paths of the legacy
-// data-provider restore that need no full wallet-backup fixture: the
-// consistency gate, the non-200 path, and the malformed-blob guard that must
-// return an error rather than panic the relay. (The ECIES happy path needs a
-// fully-signed WalletBackup blob and is deferred to a dedicated fixture.)
+// TestProcessDataProviderRestore covers the error paths; the happy path is in
+// data_provider_happy_test.go.
 func TestProcessDataProviderRestore(t *testing.T) {
 	t.Parallel()
 	const chainID = uint64(14)

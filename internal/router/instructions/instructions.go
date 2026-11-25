@@ -69,11 +69,8 @@ func ParseInstruction(il database.Log) (*Base, error) {
 	return &ib, nil
 }
 
-// EventToData copies relevant fields from Event to GeneralData. Timestamp should be recovered from the block.
-//
-// TeeID has to be set later when preparing the instruction for a specific Tee.
-// AdditionalFixedMessage and AdditionalVariableMessage are potentially set during processing.
-// A slice of tees without duplicates is made.
+// EventToData copies relevant fields from Event to GeneralData and dedupes Tees.
+// Timestamp must be recovered from the block; TeeID is set per TEE later.
 func (ib *Base) EventToData(timestamp uint64) {
 	ib.GeneralData = instruction.Data{
 		InstructionID:             ib.Event.InstructionId,
@@ -90,9 +87,7 @@ func (ib *Base) EventToData(timestamp uint64) {
 	ib.Tees = removeDuplicates(ib.Event.TeeMachines)
 }
 
-// HashesForSigning prepares hashes of instruction data that are to be signed.
-//
-// Place of the hash corresponds to the place of TeeMachine in event where duplicates are removed.
+// hashesForSigning returns the instruction's signing hash for each TEE, in ib.Tees order.
 func (ib *Base) hashesForSigning(chainID uint64) ([]common.Hash, error) {
 	data := ib.GeneralData
 

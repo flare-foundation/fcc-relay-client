@@ -71,11 +71,9 @@ func Default() Config {
 
 // Collector holds the configuration of the indexer database listener.
 type Collector struct {
-	// StartInterval is how many blocks below the indexer's last block the initial
-	// scan starts. Instructions in that window are reprocessed on every restart,
-	// so it trades restart recovery against duplicate work; 0 starts at the last block.
-	// Signed so a negative value fails CheckStartInterval — as uint64 it would decode
-	// to 2^64-1 and silently backfill from the indexer's earliest retained block.
+	// StartInterval is how many blocks below the indexer's last block the initial scan
+	// starts; that window is reprocessed on every restart. Signed so a negative value
+	// fails CheckStartInterval instead of wrapping to a full backfill.
 	StartInterval int64 `toml:"start_interval"`
 }
 
@@ -100,14 +98,9 @@ func (c *Config) CheckAddress() error {
 	return nil
 }
 
-// ApplyFlareTeeManagerEnv sets FlareTeeManager from the FLARE_TEE_MANAGER_CONTRACT_ADDRESS
-// environment variable if it is set. It must be called before CheckAddress — the variable
-// is an alternative to the config key, not only an override for it.
-//
-// The value is parsed exactly like the config key (0x-prefixed, 20 bytes). It returns an
-// error if the address is not parsable, zero, or differs from the one in the config file:
-// the address selects the contract whose instructions the relay signs, so a conflict has
-// no safe resolution.
+// ApplyFlareTeeManagerEnv sets FlareTeeManager from FLARE_TEE_MANAGER_CONTRACT_ADDRESS if
+// set, parsed like the config key. Call it before CheckAddress: the variable can replace the
+// key. It returns an error if the value is unparsable, zero, or differs from the config file's.
 func (c *Config) ApplyFlareTeeManagerEnv() error {
 	value, exists := os.LookupEnv(FlareTeeManagerVariable)
 	if !exists {

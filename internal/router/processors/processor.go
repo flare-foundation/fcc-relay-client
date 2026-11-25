@@ -11,7 +11,6 @@ import (
 )
 
 // Processor defines the interface for processing instructions.
-// Implementations should handle the logic for processing of a Base instruction.
 type Processor interface {
 	Process(context.Context, *instructions.Base) error
 }

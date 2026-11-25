@@ -23,13 +23,11 @@ jobs:
       env:
         REPOSITORY: '${{ github.repository }}'
       run: |
-        # tag main if main branch
         if [[ "${GITHUB_REF_NAME}" == "main" ]]; then
           image_tags=("main")
-        # tag with tag name if tag
         elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
           image_tags=("${GITHUB_REF_NAME}")
-          # tag with latest if tag is a new major, minor or patch version
+          # strict vX.Y.Z tags also get latest
           if [[ "${GITHUB_REF_NAME}" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             image_tags+=("latest")
           fi
@@ -42,7 +40,7 @@ jobs:
           image_paths+=("ghcr.io/$lc_repo:$tag")
         done
 
-        # join with ',' and then skip first character
+        # comma-join
         ALL_TAGS=$(printf ',%s' "${image_paths[@]}")
         echo "ALL_TAGS=${ALL_TAGS:1}" >>"$GITHUB_ENV"
 
@@ -56,7 +54,7 @@ jobs:
     - name: Build and push default image
       uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
       with:
-        context: . # Because GH actions are for kids and put protection on everything; https://stackoverflow.com/a/71159809/11276254
+        context: . # local checkout, not the default Git context: https://stackoverflow.com/a/71159809/11276254
         platforms: linux/amd64,linux/arm64
         push: true
         tags: ${{ env.ALL_TAGS }}

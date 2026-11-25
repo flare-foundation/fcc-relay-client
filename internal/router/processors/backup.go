@@ -151,7 +151,7 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 	}
 
 	ptForTEE, err := b.plaintextForTEE(ctx, wBackup, &pk)
-	if ptForTEE == nil { // if err is not nil, ptForTEE is nil. If err is nil and ptForTEE is nil, the entity legitimately has nothing to send.
+	if ptForTEE == nil { // also on error; nil, nil means the signer owns no split
 		if err == nil {
 			logger.Debugf("restore %s: signer not among backup owners, nothing to send", common.Hash(ib.Event.InstructionId).Hex())
 		}
@@ -247,11 +247,8 @@ func checkConsistency(request wallet.IWalletBackupManagerKeyDataProviderRestore,
 	}
 }
 
-// plaintextForTEE returns the decrypted key splits for the TEE node, based on the wallet backup and public key.
-// It finds the relevant encrypted parts, decrypts them, and marshals the result.
-// If the public key is both among the provider and admin owners, it returns marshaled array of both split.
-// If the public key is only among one of them, it returns the decrypted split directly.
-// If the public key is not found in either, it returns nil which indicates there is nothing to send.
+// plaintextForTEE returns pk's decrypted key splits from wb, JSON-encoded: an array if pk
+// owns both a provider and an admin split, the split itself if one, nil if none.
 func (b *Backup) plaintextForTEE(ctx context.Context, wb backup.WalletBackup, pk *types.PublicKey) ([]byte, error) {
 	index := slices.Index(wb.ProviderEncryptedParts.OwnersPublicKeys, *pk)
 	indexAdmin := slices.Index(wb.AdminEncryptedParts.OwnersPublicKeys, *pk)

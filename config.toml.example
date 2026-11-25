@@ -55,8 +55,7 @@ private_key_variable = "PRIVATE_KEY"
 # key_name = ""
 # key = ""
 
-# Terminal queue errors are drained and logged by the relay on a best-effort
-# basis (error_chan is forced on internally; setting it here has no effect).
+# error_chan is forced on and its errors logged; setting it here has no effect.
 
 [fdc.queues.availability]
 max_dequeues_per_second = 100 # zero for unlimited

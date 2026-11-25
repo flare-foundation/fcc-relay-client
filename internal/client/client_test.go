@@ -93,9 +93,8 @@ func TestNewWithDB(t *testing.T) {
 	})
 }
 
-// TestRunWaitReturnsAfterCancel proves the pipeline shuts down without deadlock:
-// after cancel, every tracked goroutine exits and Wait returns. This exercises
-// the sender's select-on-ctx fix, which otherwise blocks on an empty in channel.
+// TestRunWaitReturnsAfterCancel checks that every tracked goroutine exits after
+// cancel and Wait returns.
 func TestRunWaitReturnsAfterCancel(t *testing.T) {
 	t.Setenv("PRIVATE_KEY", testKeyHex(t))
 
