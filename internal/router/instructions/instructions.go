@@ -22,6 +22,9 @@ var teeFilterer *teeinstructions.InstructionsFilterer
 // InstructionSentEvent is the parsed TeeInstructionsSent log.
 type InstructionSentEvent = teeinstructions.InstructionsTeeInstructionsSent
 
+// Decline is the AdditionalFixedMessage of a declined instruction; fcc-proxy matches it byte for byte.
+const Decline = "DECLINE"
+
 // Base holds a TEE instruction event together with its parsed data and signatures.
 type Base struct {
 	Event       *InstructionSentEvent

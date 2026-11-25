@@ -140,7 +140,7 @@ func TestFDCProcess(t *testing.T) {
 		require.Eventually(t, func() bool { return f.queues["q"].Length() == 1 }, 2*time.Second, 10*time.Millisecond)
 	})
 
-	t.Run("unknown type and source -> sent unverified", func(t *testing.T) {
+	t.Run("unknown type and source -> declined", func(t *testing.T) {
 		t.Parallel()
 		key, operator := genKey(t)
 		out := make(chan *instructions.Base, 1)
@@ -152,7 +152,7 @@ func TestFDCProcess(t *testing.T) {
 		ib := proveInstruction(t, "TypeB", "SrcB")
 		ib.Tees = signableBase(common.HexToAddress("0x1111111111111111111111111111111111111111")).Tees
 		require.NoError(t, f.Process(t.Context(), ib))
-		requireUnverified(t, <-out, operator)
+		requireDecline(t, <-out, operator)
 	})
 
 	t.Run("cancelled ctx wraps the queue add error", func(t *testing.T) {
@@ -166,10 +166,9 @@ func TestFDCProcess(t *testing.T) {
 	})
 }
 
-// TestFDCRetriesThenSendsUnverified runs a real queue against a verifier that
-// always answers RETRY: it is asked max_attempts times, then one unverified
-// instruction is emitted.
-func TestFDCRetriesThenSendsUnverified(t *testing.T) {
+// TestFDCRetriesThenDeclines runs a real queue against a verifier that
+// always answers RETRY: it is asked max_attempts times, then one decline is emitted.
+func TestFDCRetriesThenDeclines(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -203,9 +202,9 @@ func TestFDCRetriesThenSendsUnverified(t *testing.T) {
 
 	select {
 	case got := <-out:
-		requireUnverified(t, got, operator)
+		requireDecline(t, got, operator)
 	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for the unverified instruction")
+		t.Fatal("timed out waiting for the decline")
 	}
 	require.EqualValues(t, attempts, calls.Load())
 

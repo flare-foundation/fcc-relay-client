@@ -67,8 +67,7 @@ func NewFDCHandler(base *Base, verifiers map[string]config.Verifier) (*FDCHandle
 
 // Handle handles instruction base for opType F_FDC2 opCommand PROVE.
 //
-// On REJECTED, or no usable response by the final attempt, the instruction is sent
-// with empty additional messages.
+// On REJECTED, or no usable response by the final attempt, the instruction is declined.
 func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base, final bool) error {
 	fullRequest, err := fdc.DecodeRequest(ib.GeneralData.OriginalMessage)
 	if err != nil {
@@ -98,9 +97,9 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base, final bo
 			// type/source in the error identify the verifier in queue logs, where shared queues obscure it
 			err = fmt.Errorf("getting attestation response (type %s, source %s): %w", attType, sourceID, err)
 		case res.Status == StatusRejected:
-			logger.Debugf("verifier rejected request from instruction %s (type %s, source %s), sending it unverified: %s", id, attType, sourceID, strconv.Quote(res.Message))
+			logger.Debugf("verifier rejected request from instruction %s (type %s, source %s), declining it: %s", id, attType, sourceID, strconv.Quote(res.Message))
 
-			return h.unverified(ctx, ib)
+			return h.decline(ctx, ib)
 		case res.Status == StatusRetry:
 			err = fmt.Errorf("verifier (type %s, source %s) status RETRY: %s", attType, sourceID, res.Message)
 		case res.Status != StatusVerified: // unreachable: Response validates the status
@@ -113,9 +112,9 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base, final bo
 				return err
 			}
 
-			logger.Warnf("no verifier response for instruction %s on final attempt, sending it unverified: %s", id, strconv.Quote(err.Error()))
+			logger.Warnf("no verifier response for instruction %s on final attempt, declining it: %s", id, strconv.Quote(err.Error()))
 
-			return h.unverified(ctx, ib)
+			return h.decline(ctx, ib)
 		}
 
 		logger.Debugf("verifier answered instruction %s in %s", id, time.Since(start))
@@ -156,13 +155,16 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base, final bo
 	}
 }
 
-// unverified signs and emits ib with empty additional fixed and variable messages.
-func (h *FDCHandler) unverified(ctx context.Context, ib *instructions.Base) error {
-	ib.GeneralData.AdditionalFixedMessage = nil
-	ib.GeneralData.AdditionalVariableMessage = hexutil.Bytes{}
+// decline signs and emits a copy of ib with instructions.Decline as its additional fixed message
+// and an empty variable one.
+func (h *FDCHandler) decline(ctx context.Context, ib *instructions.Base) error {
+	// a copy: ib keeps an empty AdditionalFixedMessage, so a retry asks the verifier again
+	d := *ib
+	d.GeneralData.AdditionalFixedMessage = hexutil.Bytes(instructions.Decline)
+	d.GeneralData.AdditionalVariableMessage = hexutil.Bytes{}
 
-	if err := h.Process(ctx, ib); err != nil {
-		return fmt.Errorf("sending unverified: %w", err)
+	if err := h.Process(ctx, &d); err != nil {
+		return fmt.Errorf("sending decline: %w", err)
 	}
 
 	return nil

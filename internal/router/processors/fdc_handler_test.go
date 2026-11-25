@@ -135,10 +135,24 @@ func TestFDCHandlerHandle(t *testing.T) {
 		require.Len(t, got.Signatures, 1)
 	})
 
-	t.Run("verifier rejects -> sent unverified without retry", func(t *testing.T) {
+	t.Run("verifier rejects -> declined without retry", func(t *testing.T) {
 		out := make(chan *instructions.Base, 1)
 		require.NoError(t, newHandler(out, stubResponder{res: VerifierResponse{Status: StatusRejected, Message: "unsupported"}}).Handle(context.Background(), buildIB(), false))
-		requireUnverified(t, <-out, operator)
+		requireDecline(t, <-out, operator)
+	})
+
+	t.Run("decline not emitted -> a retry asks the verifier again", func(t *testing.T) {
+		base := NewBase(chainID, signer.NewLocal(opKey)) // no out channel: emitting fails
+		h := &FDCHandler{Base: base, verifiers: map[[64]byte]Responder{ats: stubResponder{res: VerifierResponse{Status: StatusRejected}}}}
+
+		ib := buildIB()
+		require.ErrorContains(t, h.Handle(context.Background(), ib, false), "sending decline")
+		require.Empty(t, ib.GeneralData.AdditionalFixedMessage)
+
+		out := make(chan *instructions.Base, 1)
+		base.SetOut(out)
+		require.NoError(t, h.Handle(context.Background(), ib, false))
+		requireDecline(t, <-out, operator)
 	})
 
 	t.Run("verifier retry -> error for the queue, nothing emitted", func(t *testing.T) {
@@ -191,7 +205,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 		require.ErrorContains(t, h.Handle(context.Background(), buildIB(), false), "no verifier")
 	})
 
-	t.Run("final attempt without a usable response -> sent unverified", func(t *testing.T) {
+	t.Run("final attempt without a usable response -> declined", func(t *testing.T) {
 		for name, r := range map[string]stubResponder{
 			"retry":          {res: VerifierResponse{Status: StatusRetry, Message: "round not finalized"}},
 			"unknown status": {res: VerifierResponse{Status: "BOGUS"}},
@@ -201,7 +215,7 @@ func TestFDCHandlerHandle(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				out := make(chan *instructions.Base, 1)
 				require.NoError(t, newHandler(out, r).Handle(context.Background(), buildIB(), true))
-				requireUnverified(t, <-out, operator)
+				requireDecline(t, <-out, operator)
 			})
 		}
 	})
@@ -242,12 +256,12 @@ func TestFDCHandlerHandle(t *testing.T) {
 	})
 }
 
-// requireUnverified asserts ib carries empty additional messages and one
+// requireDecline asserts ib carries instructions.Decline, an empty variable message and one
 // signature per TEE by want that fcc-node recovers over the chain-14 instruction hash.
-func requireUnverified(t *testing.T, ib *instructions.Base, want common.Address) {
+func requireDecline(t *testing.T, ib *instructions.Base, want common.Address) {
 	t.Helper()
 	const chainID = 14
-	require.Empty(t, ib.GeneralData.AdditionalFixedMessage)
+	require.Equal(t, hexutil.Bytes(instructions.Decline), ib.GeneralData.AdditionalFixedMessage)
 	require.NotNil(t, ib.GeneralData.AdditionalVariableMessage)
 	require.Empty(t, ib.GeneralData.AdditionalVariableMessage)
 	require.Len(t, ib.Signatures, len(ib.Tees))

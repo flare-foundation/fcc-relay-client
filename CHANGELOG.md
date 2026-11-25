@@ -10,7 +10,7 @@
 
 - **Breaking**: the module is renamed to `github.com/flare-foundation/fcc-relay-client`, and the binary in the image to `fcc-relay-client`. The startup log line now begins `fcc-relay starting`.
 - **Breaking**: tee-node is replaced by fcc-node v0.1.0, and go-flare-common is bumped to v1.6.1. Both restore paths now expect fcc-node v0.1.0's JSON. A data-provider restore expects `walletBackup` as a nested object with base64 splits, so a backup in the tee-node format fails. A direct restore expects the source proxy's action result `data` in base64, so a hex response from tee-proxy fails to decode.
-- An FDC2 PROVE instruction the relay cannot verify is signed and sent with empty additional fixed and variable messages instead of being dropped: when no verifier serves its attestation type and source, when the verifier answers `REJECTED`, and when no usable response arrives by the queue's final attempt. See README → FDC2.
+- An FDC2 PROVE instruction the relay cannot verify is declined instead of being dropped: it is signed and sent with `DECLINE` as its additional fixed message and an empty additional variable message. fcc-proxy before version v0.1.0 answers them with 400. The relay declines when no verifier serves its attestation type and source, when the verifier answers `REJECTED`, and when no usable response arrives by the queue's final attempt. See README → FDC2.
 
 ## [v0.0.6](https://github.com/flare-foundation/tee-relay-client/tree/v0.0.6) - 2026-11-12
 
