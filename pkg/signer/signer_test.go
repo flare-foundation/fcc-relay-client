@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/tee-node/pkg/types"
-	"github.com/flare-foundation/tee-node/pkg/utils"
-	"github.com/flare-foundation/tee-relay-client/pkg/testutils"
+	"github.com/flare-foundation/fcc-node/pkg/types"
+	"github.com/flare-foundation/fcc-node/pkg/utils"
+	"github.com/flare-foundation/fcc-relay-client/pkg/testutils"
 	"github.com/stretchr/testify/require"
 )
 

@@ -8,11 +8,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/flare-foundation/fcc-relay-client/internal/client"
+	"github.com/flare-foundation/fcc-relay-client/internal/health"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/toml"
-	"github.com/flare-foundation/tee-relay-client/internal/client"
-	"github.com/flare-foundation/tee-relay-client/internal/health"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 const allowUnsafeURLsEnv = "ALLOW_UNSAFE_URLS"
@@ -92,7 +92,7 @@ func main() {
 
 	logger.Set(cfg.Logging)
 
-	logger.Infof("tee-relay starting: chain %d, FlareTeeManager %s, cosigner %t", cfg.ChainID, cfg.FlareTeeManager, cfg.IsCosigner)
+	logger.Infof("fcc-relay starting: chain %d, FlareTeeManager %s, cosigner %t", cfg.ChainID, cfg.FlareTeeManager, cfg.IsCosigner)
 
 	if cfg.AllowUnsafeURLs {
 		logger.Warnf("SSRF protection is disabled via %s — do not use in production", allowUnsafeURLsEnv)

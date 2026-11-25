@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/signer"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 // NewTestSigner creates a signer server on a free port that can be used in simulation.

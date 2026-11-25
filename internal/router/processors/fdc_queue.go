@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 )
 
 // Weight for ordering of the FDC queues.

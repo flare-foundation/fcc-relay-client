@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/flare-foundation/tee-node/pkg/fdc"
+	"github.com/flare-foundation/fcc-node/pkg/fdc"
 	"github.com/stretchr/testify/require"
 )
 

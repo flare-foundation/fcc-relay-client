@@ -8,14 +8,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/fcc-relay-client/internal/router"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/internal/sender"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
+	rsigner "github.com/flare-foundation/fcc-relay-client/pkg/signer"
+	"github.com/flare-foundation/fcc-relay-client/pkg/testutils"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/priority"
-	"github.com/flare-foundation/tee-relay-client/internal/router"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/internal/sender"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
-	rsigner "github.com/flare-foundation/tee-relay-client/pkg/signer"
-	"github.com/flare-foundation/tee-relay-client/pkg/testutils"
 
 	"github.com/stretchr/testify/require"
 )

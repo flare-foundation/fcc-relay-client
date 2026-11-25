@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
 )
 
 const validManager = "0xdE25c06982Ab8e4b6B4F910896E3f93Ac77FB44d"

@@ -15,18 +15,18 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/safeurl"
 	"github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
 
-	"github.com/flare-foundation/tee-node/pkg/types"
-	"github.com/flare-foundation/tee-node/pkg/utils"
-	"github.com/flare-foundation/tee-node/pkg/wallets"
-	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
+	"github.com/flare-foundation/fcc-node/pkg/types"
+	"github.com/flare-foundation/fcc-node/pkg/utils"
+	"github.com/flare-foundation/fcc-node/pkg/wallets"
+	"github.com/flare-foundation/fcc-node/pkg/wallets/backup"
 )
 
 // Backup processes wallet backup restore instructions.
@@ -114,7 +114,7 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 	}
 
 	decoder := json.NewDecoder(respLimited)
-	response := new(wallets.TEEBackupResponse)
+	response := new(backup.TEEBackupResponse)
 	err = decoder.Decode(response)
 	if err != nil {
 		return fmt.Errorf("decoding backup response: %w", err)
@@ -125,11 +125,10 @@ func (b *Backup) processDataProviderRestore(ctx context.Context, ib *instruction
 		return fmt.Errorf("backup package inconsistent with the request: %w", err)
 	}
 
-	var wBackup backup.WalletBackup
-	err = json.Unmarshal(response.WalletBackup, &wBackup)
-	if err != nil {
-		return fmt.Errorf("unmarshaling wallet backup: %w", err)
+	if response.WalletBackup == nil {
+		return errors.New("backup response has no wallet backup")
 	}
+	wBackup := *response.WalletBackup
 
 	err = wBackup.Check(b.base.chainID)
 	if err != nil {

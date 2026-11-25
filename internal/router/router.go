@@ -7,13 +7,13 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/processors"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/internal/router/processors"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 )
 
 // InstructionClass selects which processor implementation handles an instruction.

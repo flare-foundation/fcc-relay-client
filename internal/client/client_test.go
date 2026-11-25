@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/fcc-relay-client/internal/health"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
-	"github.com/flare-foundation/tee-relay-client/internal/health"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -40,7 +40,7 @@ func TestSetSigner(t *testing.T) {
 	})
 
 	t.Run("local with missing key", func(t *testing.T) {
-		_, err := setSigner(&config.Signer{Local: true, PrivateKeyVariable: "TEE_RELAY_UNSET_KEY_VAR"})
+		_, err := setSigner(&config.Signer{Local: true, PrivateKeyVariable: "FCC_RELAY_UNSET_KEY_VAR"})
 		require.ErrorContains(t, err, "private key")
 	})
 

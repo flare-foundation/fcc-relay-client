@@ -11,14 +11,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/flare-foundation/fcc-node/pkg/constraints"
+	"github.com/flare-foundation/fcc-relay-client/internal/post"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
 	"github.com/flare-foundation/go-flare-common/pkg/call"
 	"github.com/flare-foundation/go-flare-common/pkg/retry"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
-	"github.com/flare-foundation/tee-node/pkg/constraints"
-	"github.com/flare-foundation/tee-relay-client/internal/post"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 // VerifierStatus is the verifier's verdict on an attestation request.
@@ -37,7 +37,7 @@ var ErrUnknownStatus = errors.New("unknown verifier status")
 // ErrEmptyResponseBody marks a VERIFIED verifier response with an empty response body.
 var ErrEmptyResponseBody = errors.New("VERIFIED verifier response with empty response body")
 
-// ErrResponseBodyTooBig marks a VERIFIED verifier response whose body exceeds tee-node's op.Prove size limit.
+// ErrResponseBodyTooBig marks a VERIFIED verifier response whose body exceeds fcc-node's op.Prove size limit.
 var ErrResponseBodyTooBig = errors.New("verifier response body exceeds the instruction size limit")
 
 // VerifierRequest is a request sent to the verifier server.

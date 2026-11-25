@@ -5,8 +5,8 @@
 package client
 
 import (
-	"github.com/flare-foundation/tee-relay-client/internal/client"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
+	"github.com/flare-foundation/fcc-relay-client/internal/client"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
 )
 
 // New creates a new Client from cfg, without health reporting.

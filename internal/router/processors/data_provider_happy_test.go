@@ -12,15 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/fcc-node/pkg/types"
+	"github.com/flare-foundation/fcc-node/pkg/utils"
+	"github.com/flare-foundation/fcc-node/pkg/wallets"
+	"github.com/flare-foundation/fcc-node/pkg/wallets/backup"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
-	"github.com/flare-foundation/tee-node/pkg/types"
-	"github.com/flare-foundation/tee-node/pkg/utils"
-	"github.com/flare-foundation/tee-node/pkg/wallets"
-	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -85,13 +85,13 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	require.NoError(t, err)
 
 	provider := &backup.EncryptedShares{
-		Splits:           []hexutil.Bytes{eciesEncrypt(t, relayKey, keySplitBytes)},
+		Splits:           [][]byte{eciesEncrypt(t, relayKey, keySplitBytes)},
 		OwnersPublicKeys: []types.PublicKey{types.PubKeyToStruct(&relayKey.PublicKey)},
 		Threshold:        1,
 		Weights:          []uint16{1},
 	}
 	admin := &backup.EncryptedShares{
-		Splits:           []hexutil.Bytes{[]byte("admin-share-not-decrypted")},
+		Splits:           [][]byte{[]byte("admin-share-not-decrypted")},
 		OwnersPublicKeys: []types.PublicKey{types.PubKeyToStruct(&adminKey.PublicKey)},
 		Threshold:        1,
 		Weights:          []uint16{1},
@@ -113,9 +113,7 @@ func TestProcessDataProviderRestoreHappyPath(t *testing.T) {
 	wb.TEESignature, err = utils.Sign(teeHash[:], teeKey)
 	require.NoError(t, err)
 
-	wbBytes, err := json.Marshal(wb)
-	require.NoError(t, err)
-	respBytes, err := json.Marshal(wallets.TEEBackupResponse{BackupID: id, WalletBackup: wbBytes})
+	respBytes, err := json.Marshal(backup.TEEBackupResponse{BackupID: id, WalletBackup: &wb})
 	require.NoError(t, err)
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

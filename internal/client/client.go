@@ -6,15 +6,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/flare-foundation/fcc-relay-client/internal/collector"
+	"github.com/flare-foundation/fcc-relay-client/internal/health"
+	"github.com/flare-foundation/fcc-relay-client/internal/router"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/internal/sender"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/tee-relay-client/internal/collector"
-	"github.com/flare-foundation/tee-relay-client/internal/health"
-	"github.com/flare-foundation/tee-relay-client/internal/router"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/internal/sender"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"gorm.io/gorm"
 )
 

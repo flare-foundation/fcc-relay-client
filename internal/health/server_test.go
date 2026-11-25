@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/flare-foundation/tee-relay-client/internal/health"
+	"github.com/flare-foundation/fcc-relay-client/internal/health"
 	"github.com/stretchr/testify/require"
 )
 
