@@ -28,10 +28,10 @@ log_queries = false
 # optional TLS; omitted = plaintext. Use "verify" when the indexer is on another host
 # [db.tls]
 # mode = "verify"                                  # off | skip-verify | verify
-# ca_cert = "/etc/tee-relay/db-ca.pem"             # replaces the system roots; verify only
+# ca_cert = "/etc/fcc-relay/db-ca.pem"             # replaces the system roots; verify only
 # server_name = "indexer.example.com"              # defaults to host; verify only
-# client_cert = "/etc/tee-relay/db-client.pem"     # mutual TLS, set with client_key; verify only
-# client_key = "/etc/tee-relay/db-client-key.pem"
+# client_cert = "/etc/fcc-relay/db-client.pem"     # mutual TLS, set with client_key; verify only
+# client_key = "/etc/fcc-relay/db-client-key.pem"
 
 
 [logger]
@@ -55,8 +55,7 @@ private_key_variable = "PRIVATE_KEY"
 # key_name = ""
 # key = ""
 
-# Terminal queue errors are drained and logged by the relay on a best-effort
-# basis (error_chan is forced on internally; setting it here has no effect).
+# error_chan is forced on and its errors logged; setting it here has no effect.
 
 [fdc.queues.availability]
 max_dequeues_per_second = 100 # zero for unlimited

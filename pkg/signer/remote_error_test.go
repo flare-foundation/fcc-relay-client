@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
 	"github.com/stretchr/testify/require"
 )
 

@@ -6,12 +6,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 )
 
 // Processor defines the interface for processing instructions.
-// Implementations should handle the logic for processing of a Base instruction.
 type Processor interface {
 	Process(context.Context, *instructions.Base) error
 }

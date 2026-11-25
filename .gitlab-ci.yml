@@ -46,6 +46,6 @@ include:
     inputs:
       go_version: "${GO_VERSION}"
       cobertura_go_version: "${GO_VERSION}"
-      go_test_command: "go test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=github.com/flare-foundation/tee-relay-client/... ./..."
+      go_test_command: "go test -race -covermode=atomic -coverprofile=coverage.out -coverpkg=github.com/flare-foundation/fcc-relay-client/... ./..."
       tags: ["flarenetwork-lg"]
   - component: gitlab.com/flarenetwork/ci-components-private/test-docker-build@2

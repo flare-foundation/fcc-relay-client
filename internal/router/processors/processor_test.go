@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
 

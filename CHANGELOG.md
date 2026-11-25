@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Security
+
+- gorilla/websocket moves past v1.5.3 for GO-2026-6278, and golang.org/x/net, which it now requires, to v0.62.0. The relay opens no WebSocket connections.
+
+### Changed
+
+- **Breaking**: the module is renamed to `github.com/flare-foundation/fcc-relay-client`, and the binary in the image to `fcc-relay-client`. The startup log line now begins `fcc-relay starting`.
+- **Breaking**: tee-node is replaced by fcc-node v0.1.0, and go-flare-common is bumped to v1.6.1. Both restore paths now expect fcc-node v0.1.0's JSON. A data-provider restore expects `walletBackup` as a nested object with base64 splits, so a backup in the tee-node format fails. A direct restore expects the source proxy's action result `data` in base64, so a hex response from tee-proxy fails to decode.
+
 ## [v0.0.6](https://github.com/flare-foundation/tee-relay-client/tree/v0.0.6) - 2026-11-12
 
 ### Changed

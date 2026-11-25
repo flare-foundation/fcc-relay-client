@@ -10,18 +10,19 @@
   <a href="CHANGELOG.md">Changelog</a>
 </div>
 
-# TEE relay client
+# FCC relay client
 
-TEE relay client is a connector between smart contracts on Flare's C-chain and TEE clients.
-It listens to `TeeInstructionsSent` events emitted by the `FlareTeeManager` smart contract, processes them, and forwards them to the TEE nodes.
+FCC relay client is a connector between smart contracts on Flare's C-chain and Flare Confidential Compute (FCC) nodes,
+which run inside a Trusted Execution Environment (TEE).
+It listens to `TeeInstructionsSent` events emitted by the `FlareTeeManager` smart contract, processes them, and forwards them to the FCC nodes.
 
 ## Running
 
 Build and run the relay client:
 
 ```shell
-go build -o tee-relay ./cmd/main
-./tee-relay
+go build -o fcc-relay ./cmd/main
+./fcc-relay
 ```
 
 The binary expects `config.toml` to be present in the working directory.
@@ -33,12 +34,12 @@ A reachable C-chain indexer database is required: the relay connects to it at st
 No image is published. Build with the provided `Dockerfile`, which can be used as is:
 
 ```shell
-docker build -t tee-relay .
-docker run -d --name tee-relay \
+docker build -t fcc-relay .
+docker run -d --name fcc-relay \
   -p 127.0.0.1:8080:8080 \
-  -v /etc/tee-relay/config.toml:/app/config.toml:ro \
-  --env-file /etc/tee-relay/relay.env \
-  tee-relay
+  -v /etc/fcc-relay/config.toml:/app/config.toml:ro \
+  --env-file /etc/fcc-relay/relay.env \
+  fcc-relay
 ```
 
 The runtime stage is `debian:trixie`, to which the build adds the binary and CA certificates. It sets `WORKDIR /app` and
@@ -72,7 +73,7 @@ cp config.toml.example config.toml
 
 ### Modes of operation
 
-TEE relay client can be run in _provider_ or _cosigner_ mode, controlled by the `is_cosigner` field.
+FCC relay client can be run in _provider_ or _cosigner_ mode, controlled by the `is_cosigner` field.
 
 #### Provider mode
 
@@ -164,10 +165,10 @@ transit.
 ```toml
 [db.tls]
 mode = "verify"
-ca_cert = "/etc/tee-relay/db-ca.pem"            # optional; replaces the system roots
+ca_cert = "/etc/fcc-relay/db-ca.pem"            # optional; replaces the system roots
 server_name = "indexer.example.com"             # optional; defaults to host
-client_cert = "/etc/tee-relay/db-client.pem"    # optional; mutual TLS, set with client_key
-client_key = "/etc/tee-relay/db-client-key.pem"
+client_cert = "/etc/fcc-relay/db-client.pem"    # optional; mutual TLS, set with client_key
+client_key = "/etc/fcc-relay/db-client-key.pem"
 ```
 
 | `mode`              | effect                                                                                                     |
@@ -394,7 +395,7 @@ Logs go to stdout only. Set `NO_COLOR` to a nonempty value to disable console co
 ### Health endpoints
 
 On by default: the relay serves the three Kubernetes-shaped probes on port `8080`, on all interfaces — the same names
-and codes as tee-proxy's internal port. `8080` is the port the provided Dockerfile `EXPOSE`s.
+and codes as fcc-proxy's internal port. `8080` is the port the provided Dockerfile `EXPOSE`s.
 
 ```toml
 [health]

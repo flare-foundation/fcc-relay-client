@@ -7,17 +7,16 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/tee-node/pkg/types"
-	"github.com/flare-foundation/tee-node/pkg/wallets"
-	"github.com/flare-foundation/tee-node/pkg/wallets/backup"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
+	"github.com/flare-foundation/fcc-node/pkg/types"
+	"github.com/flare-foundation/fcc-node/pkg/wallets"
+	"github.com/flare-foundation/fcc-node/pkg/wallets/backup"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
 
 // relaySplit builds a KeySplit owned by ownerKey, signed by walletKey, and
 // ECIES-encrypted to ownerKey, with its WalletBackupID bound to id.
-func relaySplit(t *testing.T, walletKey, ownerKey *ecdsa.PrivateKey, id wallets.WalletBackupID, chainID uint64, isAdmin bool) hexutil.Bytes {
+func relaySplit(t *testing.T, walletKey, ownerKey *ecdsa.PrivateKey, id wallets.WalletBackupID, chainID uint64, isAdmin bool) []byte {
 	t.Helper()
 	ksd := backup.KeySplitData{
 		Shares:         []backup.ShamirShare{{X: 1, Y: []byte{2}}},
@@ -33,9 +32,9 @@ func relaySplit(t *testing.T, walletKey, ownerKey *ecdsa.PrivateKey, id wallets.
 	return eciesEncrypt(t, ownerKey, b)
 }
 
-func shares(owner types.PublicKey, split hexutil.Bytes) *backup.EncryptedShares {
+func shares(owner types.PublicKey, split []byte) *backup.EncryptedShares {
 	return &backup.EncryptedShares{
-		Splits:           []hexutil.Bytes{split},
+		Splits:           [][]byte{split},
 		OwnersPublicKeys: []types.PublicKey{owner},
 		Threshold:        1,
 		Weights:          []uint16{1},
@@ -61,7 +60,7 @@ func TestPlaintextForTEE(t *testing.T) {
 	}
 	relayPub := types.PubKeyToStruct(&relayKey.PublicKey)
 	otherPub := types.PubKeyToStruct(&otherKey.PublicKey)
-	junk := hexutil.Bytes("not-decrypted")
+	junk := []byte("not-decrypted")
 
 	relayProvider := relaySplit(t, walletKey, relayKey, id, chainID, false)
 	relayAdmin := relaySplit(t, walletKey, relayKey, id, chainID, true)

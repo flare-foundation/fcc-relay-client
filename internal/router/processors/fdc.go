@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 // FDC processes FDC2 instructions by adding them to a queue for the designated verifier.

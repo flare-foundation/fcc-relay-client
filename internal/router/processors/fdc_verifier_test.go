@@ -14,7 +14,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -69,7 +69,7 @@ func TestVerifierResponseWire(t *testing.T) {
 	require.Equal(t, VerifierResponse{Status: StatusVerified, ResponseBody: hexutil.Bytes{0x01, 0x02}}, res)
 }
 
-// teeProveBodyLimit pins tee-node's op.Prove additionalFixedMessage limit; a failing boundary case means it moved.
+// teeProveBodyLimit pins fcc-node's op.Prove additionalFixedMessage limit; a failing boundary case means it moved.
 const teeProveBodyLimit = 100 * 1024
 
 func TestVerifierResponseStatuses(t *testing.T) {

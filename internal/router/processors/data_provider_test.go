@@ -9,20 +9,18 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/fcc-node/pkg/wallets"
+	"github.com/flare-foundation/fcc-node/pkg/wallets/backup"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/abicoder"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
-	"github.com/flare-foundation/tee-node/pkg/wallets"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
 
-// TestProcessDataProviderRestore covers the error paths of the legacy
-// data-provider restore that need no full wallet-backup fixture: the
-// consistency gate, the non-200 path, and the malformed-blob guard that must
-// return an error rather than panic the relay. (The ECIES happy path needs a
-// fully-signed WalletBackup blob and is deferred to a dedicated fixture.)
+// TestProcessDataProviderRestore covers the error paths; the happy path is in
+// data_provider_happy_test.go.
 func TestProcessDataProviderRestore(t *testing.T) {
 	t.Parallel()
 	const chainID = uint64(14)
@@ -61,22 +59,28 @@ func TestProcessDataProviderRestore(t *testing.T) {
 		return NewBackup(base, true).Process(context.Background(), ib)
 	}
 
-	response := func(backupID wallets.WalletBackupID, blob []byte) []byte {
-		b, err := json.Marshal(wallets.TEEBackupResponse{BackupID: backupID, WalletBackup: blob})
+	response := func(backupID wallets.WalletBackupID, wb *backup.WalletBackup) []byte {
+		b, err := json.Marshal(backup.TEEBackupResponse{BackupID: backupID, WalletBackup: wb})
 		require.NoError(t, err)
 		return b
 	}
 
 	t.Run("malformed backup blob is rejected without panicking", func(t *testing.T) {
-		srv := proxy(http.StatusOK, response(id, []byte("{}")))
+		srv := proxy(http.StatusOK, response(id, &backup.WalletBackup{}))
 		defer srv.Close()
 		require.ErrorContains(t, process(build(srv.URL)), "checking wallet backup")
+	})
+
+	t.Run("missing wallet backup is rejected without panicking", func(t *testing.T) {
+		srv := proxy(http.StatusOK, response(id, nil))
+		defer srv.Close()
+		require.ErrorContains(t, process(build(srv.URL)), "no wallet backup")
 	})
 
 	t.Run("backup id inconsistent with request", func(t *testing.T) {
 		mismatched := id
 		mismatched.WalletID = common.HexToHash("0xdead")
-		srv := proxy(http.StatusOK, response(mismatched, []byte("{}")))
+		srv := proxy(http.StatusOK, response(mismatched, &backup.WalletBackup{}))
 		defer srv.Close()
 		require.ErrorContains(t, process(build(srv.URL)), "inconsistent")
 	})

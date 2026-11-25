@@ -5,12 +5,12 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/processors"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/internal/router/processors"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
 

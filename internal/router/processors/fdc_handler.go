@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/fcc-node/pkg/fdc"
+	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
+	"github.com/flare-foundation/fcc-relay-client/pkg/config"
 	"github.com/flare-foundation/go-flare-common/pkg/convert"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/fdc2"
-	"github.com/flare-foundation/tee-node/pkg/fdc"
-	"github.com/flare-foundation/tee-relay-client/internal/router/instructions"
-	"github.com/flare-foundation/tee-relay-client/pkg/config"
 )
 
 // FDCHandler links to verifiers for F_FDC2 instructions.
@@ -83,10 +83,8 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 		return fmt.Errorf("no verifier for type: %s, source: %s", attType, sourceID)
 	}
 
-	// A re-enqueued instruction that already verified skips the verifier query:
-	// the queue re-pushes the same instance, and only a VERIFIED response sets
-	// AdditionalFixedMessage — so a retry after a signing/emit failure does not
-	// pay another verifier round-trip.
+	// the queue retries the same instance and only VERIFIED sets AdditionalFixedMessage:
+	// skip the verifier if an earlier attempt already verified
 	if len(ib.GeneralData.AdditionalFixedMessage) == 0 {
 		start := time.Now()
 		res, err := v.Response(ctx, fullRequest)
@@ -146,9 +144,8 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 	}
 }
 
-// AttTypeAndSourceIDBase can be used for FDC2 instructions and
-// returns concatenated attestation type and source ID each 32 bytes
-// for and encoded attestationRequest.
+// AttTypeAndSourceIDBase returns the attestation type and source ID of an FDC2
+// instruction's request, concatenated as 32 bytes each.
 func AttTypeAndSourceIDBase(b *instructions.Base) ([64]byte, error) {
 	fullRequest, err := fdc.DecodeRequest(b.GeneralData.OriginalMessage)
 	if err != nil {
@@ -158,8 +155,8 @@ func AttTypeAndSourceIDBase(b *instructions.Base) ([64]byte, error) {
 	return AttTypeAndSourceID(&fullRequest.Header)
 }
 
-// AttTypeAndSourceID returns concatenated attestation type and source ID each 32 bytes
-// for and encoded attestationRequest.
+// AttTypeAndSourceID returns the attestation type and source ID of header,
+// concatenated as 32 bytes each.
 func AttTypeAndSourceID(header *fdc2.IFdc2HubFdc2RequestHeader) ([64]byte, error) {
 	res := [64]byte{}
 

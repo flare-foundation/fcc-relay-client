@@ -7,10 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/flare-foundation/fcc-relay-client/pkg/signer"
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/database"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/instruction"
-	"github.com/flare-foundation/tee-relay-client/pkg/signer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -56,10 +56,8 @@ func TestParseInstruction(t *testing.T) {
 	require.Equal(t, common.Address{}, ib.GeneralData.TeeID)
 }
 
-// TestSignAndRecover signs an instruction through the real Base.Sign path and
-// recovers the operator address from each per-tee signature, proving the
-// prefix+chainID preimage round-trips. Recovering with the wrong chainID must
-// NOT yield the operator, proving chainID is actually bound into the signed hash.
+// TestSignAndRecover checks the operator is recovered from each per-TEE signature
+// made by Base.Sign, and not with a wrong chainID.
 func TestSignAndRecover(t *testing.T) {
 	const chainID = uint64(14)
 

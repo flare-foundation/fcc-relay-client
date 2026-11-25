@@ -6,12 +6,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/flare-foundation/fcc-node/pkg/types"
+	"github.com/flare-foundation/fcc-node/pkg/wallets"
 	teeinstructions "github.com/flare-foundation/go-flare-common/pkg/contracts/tee/instructions"
 	"github.com/flare-foundation/go-flare-common/pkg/signing"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/op"
 	"github.com/flare-foundation/go-flare-common/pkg/tee/structs/wallet"
-	"github.com/flare-foundation/tee-node/pkg/types"
-	"github.com/flare-foundation/tee-node/pkg/wallets"
 	"github.com/stretchr/testify/require"
 )
 
@@ -132,7 +132,7 @@ func TestCheckConsistency(t *testing.T) {
 
 // TestValidateActionResponseDirect guards the source-proxy action-response
 // verification — including the three preimage/op checks that must mirror
-// tee-node (correct chainID, single accounts.TextHash, KEY_DIRECT_BACKUP op).
+// fcc-node (correct chainID, single accounts.TextHash, KEY_DIRECT_BACKUP op).
 func TestValidateActionResponseDirect(t *testing.T) {
 	t.Parallel()
 	const chainID = uint64(14)
