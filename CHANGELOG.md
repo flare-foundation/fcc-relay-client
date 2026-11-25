@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Security
+
+- gorilla/websocket moves past v1.5.3 for GO-2026-6278, and golang.org/x/net, which it now requires, to v0.62.0. The relay opens no WebSocket connections.
+
 ### Changed
 
 - **Breaking**: the module is renamed to `github.com/flare-foundation/fcc-relay-client`, and the binary in the image to `fcc-relay-client`. The startup log line now begins `fcc-relay starting`.
