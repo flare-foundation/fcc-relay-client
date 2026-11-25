@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/flare-foundation/fcc-node/pkg/fdc"
 	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/fcc-relay-client/pkg/config"
@@ -65,7 +66,9 @@ func NewFDCHandler(base *Base, verifiers map[string]config.Verifier) (*FDCHandle
 }
 
 // Handle handles instruction base for opType F_FDC2 opCommand PROVE.
-func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
+//
+// On REJECTED, or no usable response by the final attempt, the instruction is declined.
+func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base, final bool) error {
 	fullRequest, err := fdc.DecodeRequest(ib.GeneralData.OriginalMessage)
 	if err != nil {
 		return fmt.Errorf("decoding request: %w", err) // should never happen
@@ -77,6 +80,7 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 	}
 
 	attType, sourceID := atsStrings(ats)
+	id := common.Hash(ib.Event.InstructionId).Hex()
 
 	v, exists := h.verifiers[ats]
 	if !exists {
@@ -88,29 +92,36 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 	if len(ib.GeneralData.AdditionalFixedMessage) == 0 {
 		start := time.Now()
 		res, err := v.Response(ctx, fullRequest)
-		if err != nil {
+		switch {
+		case err != nil:
 			// type/source in the error identify the verifier in queue logs, where shared queues obscure it
-			return fmt.Errorf("getting attestation response (type %s, source %s): %w", attType, sourceID, err)
+			err = fmt.Errorf("getting attestation response (type %s, source %s): %w", attType, sourceID, err)
+		case res.Status == StatusRejected:
+			logger.Debugf("verifier rejected request from instruction %s (type %s, source %s), declining it: %s", id, attType, sourceID, strconv.Quote(res.Message))
+
+			return h.decline(ctx, ib)
+		case res.Status == StatusRetry:
+			err = fmt.Errorf("verifier (type %s, source %s) status RETRY: %s", attType, sourceID, res.Message)
+		case res.Status != StatusVerified: // unreachable: Response validates the status
+			err = fmt.Errorf("%w: %q", ErrUnknownStatus, res.Status)
 		}
 
-		switch res.Status {
-		case StatusVerified:
-		case StatusRetry:
-			// error return re-enqueues the instruction: the queue retries after time_off, up to max_attempts
-			return fmt.Errorf("verifier (type %s, source %s) status RETRY: %s", attType, sourceID, res.Message)
-		case StatusRejected:
-			logger.Debugf("verifier rejected request from instruction %s (type %s, source %s): %s", common.Hash(ib.Event.InstructionId).Hex(), attType, sourceID, strconv.Quote(res.Message))
+		if err != nil {
+			// a cancelled ctx is shutdown, not a verifier failure
+			if !final || ctx.Err() != nil {
+				return err
+			}
 
-			return nil
-		default: // unreachable: Response validates the status
-			return fmt.Errorf("%w: %q", ErrUnknownStatus, res.Status)
+			logger.Warnf("no verifier response for instruction %s on final attempt, declining it: %s", id, strconv.Quote(err.Error()))
+
+			return h.decline(ctx, ib)
 		}
 
-		logger.Debugf("verifier answered instruction %s in %s", common.Hash(ib.Event.InstructionId).Hex(), time.Since(start))
+		logger.Debugf("verifier answered instruction %s in %s", id, time.Since(start))
 
 		ib.GeneralData.AdditionalFixedMessage = res.ResponseBody
 	} else {
-		logger.Debugf("reusing verified response for instruction %s", common.Hash(ib.Event.InstructionId).Hex())
+		logger.Debugf("reusing verified response for instruction %s", id)
 	}
 
 	messageHash, _, err := fdc.HashMessage(h.chainID, fullRequest, ib.GeneralData.AdditionalFixedMessage, ib.Event.Cosigners, ib.Event.CosignersThreshold, ib.GeneralData.Timestamp)
@@ -142,6 +153,21 @@ func (h *FDCHandler) Handle(ctx context.Context, ib *instructions.Base) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
+}
+
+// decline signs and emits a copy of ib with instructions.Decline as its additional fixed message
+// and an empty variable one.
+func (h *FDCHandler) decline(ctx context.Context, ib *instructions.Base) error {
+	// a copy: ib keeps an empty AdditionalFixedMessage, so a retry asks the verifier again
+	d := *ib
+	d.GeneralData.AdditionalFixedMessage = hexutil.Bytes(instructions.Decline)
+	d.GeneralData.AdditionalVariableMessage = hexutil.Bytes{}
+
+	if err := h.Process(ctx, &d); err != nil {
+		return fmt.Errorf("sending decline: %w", err)
+	}
+
+	return nil
 }
 
 // AttTypeAndSourceIDBase returns the attestation type and source ID of an FDC2

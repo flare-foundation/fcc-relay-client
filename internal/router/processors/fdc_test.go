@@ -2,9 +2,12 @@ package processors
 
 import (
 	"context"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/fcc-node/pkg/fdc"
 	"github.com/flare-foundation/fcc-relay-client/internal/router/instructions"
 	"github.com/flare-foundation/fcc-relay-client/pkg/config"
@@ -137,13 +140,19 @@ func TestFDCProcess(t *testing.T) {
 		require.Eventually(t, func() bool { return f.queues["q"].Length() == 1 }, 2*time.Second, 10*time.Millisecond)
 	})
 
-	t.Run("no queue for unknown type and source", func(t *testing.T) {
+	t.Run("unknown type and source -> declined", func(t *testing.T) {
 		t.Parallel()
-		f := newFDC(t)
+		key, operator := genKey(t)
+		out := make(chan *instructions.Base, 1)
+		b := NewBase(14, signer.NewLocal(key))
+		b.SetOut(out)
+		f, err := NewFDC(nil, b)
+		require.NoError(t, err)
 
-		err := f.Process(t.Context(), proveInstruction(t, "TypeB", "SrcB"))
-		require.ErrorContains(t, err, "no queue for")
-		require.ErrorContains(t, err, "TypeB")
+		ib := proveInstruction(t, "TypeB", "SrcB")
+		ib.Tees = signableBase(common.HexToAddress("0x1111111111111111111111111111111111111111")).Tees
+		require.NoError(t, f.Process(t.Context(), ib))
+		requireDecline(t, <-out, operator)
 	})
 
 	t.Run("cancelled ctx wraps the queue add error", func(t *testing.T) {
@@ -155,4 +164,55 @@ func TestFDCProcess(t *testing.T) {
 		err := f.Process(ctx, proveInstruction(t, "TypeA", "SrcA"))
 		require.ErrorContains(t, err, "adding to queue")
 	})
+}
+
+// TestFDCRetriesThenDeclines runs a real queue against a verifier that
+// always answers RETRY: it is asked max_attempts times, then one decline is emitted.
+func TestFDCRetriesThenDeclines(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	key, operator := genKey(t)
+	out := make(chan *instructions.Base, 2)
+	b := NewBase(14, signer.NewLocal(key))
+	b.SetOut(out)
+
+	const attempts = 3
+	cfg := &config.FDC{
+		Queues: map[string]priority.Params{"q": {MaxAttempts: attempts, TimeOff: time.Millisecond}},
+		Verifiers: map[string]config.Verifier{
+			"v": {AttType: "TypeA", SourceID: "SrcA", QueueName: "q", Server: config.Credentials{URL: "http://verifier"}},
+		},
+	}
+	f, err := NewFDC(cfg, b)
+	require.NoError(t, err)
+
+	ats, err := config.JoinAttTypeAndSourceID("TypeA", "SrcA")
+	require.NoError(t, err)
+	calls := new(atomic.Int32)
+	f.handler.verifiers[ats] = countingResponder{calls: calls, res: VerifierResponse{Status: StatusRetry, Message: "not final"}}
+
+	var wg sync.WaitGroup
+	f.StartQueues(ctx, &wg)
+
+	ib := proveInstruction(t, "TypeA", "SrcA")
+	ib.Tees = signableBase(common.HexToAddress("0x1111111111111111111111111111111111111111")).Tees
+	require.NoError(t, f.Process(ctx, ib))
+
+	select {
+	case got := <-out:
+		requireDecline(t, got, operator)
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for the decline")
+	}
+	require.EqualValues(t, attempts, calls.Load())
+
+	// no further attempt or emission follows the final one
+	time.Sleep(50 * time.Millisecond)
+	require.EqualValues(t, attempts, calls.Load())
+	require.Empty(t, out)
+
+	cancel()
+	wg.Wait()
 }
